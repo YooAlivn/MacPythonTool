@@ -2,6 +2,8 @@ import subprocess
 import sys
 import os
 import time
+from enum import Enum
+
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLineEdit, QPushButton, QComboBox, QTextEdit, QFileDialog,
@@ -49,6 +51,7 @@ class DownloadThread(QThread):
         self.logo_scale = window_param.get("logo_scale")
         self.add_text = window_param.get("add_text_edit")
         self.logo_text_set = window_param.get("logo_text_set")
+        self.ffmpeg_path = r"/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg"
 
     def run_ffmpeg_command(self, command, msg):
         self.log_signal.emit(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] cmd: {command}")
@@ -56,6 +59,8 @@ class DownloadThread(QThread):
         if result.returncode == 0:
             self.log_signal.emit(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}")
         else:
+            self.log_signal.emit(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {result.stdout}")
+            self.log_signal.emit(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {result.stderr}")
             self.log_signal.emit(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 命令执行失败")
         return result.returncode
 
@@ -78,7 +83,7 @@ class DownloadThread(QThread):
                 'writethumbnail' : True,
                 'noplaylist': True,
                 # FFmpeg路径
-                'ffmpeg': '/opt/homebrew/bin/ffmpeg',
+                'ffmpeg': self.ffmpeg_path,
                 'outtmpl': '%(title).50s.%(ext)s',
                 'restrictfilenames': True
             }
@@ -117,7 +122,7 @@ class DownloadThread(QThread):
 
                 # 高质量mp4
                 hp_mp4 = os.path.join(self.save_path, f'hp_{new_time_str}.mp4')
-                ffmpeg_cmd = (f"ffmpeg -i {src_lp_media_name} -c:v libx264 -crf 18 "
+                ffmpeg_cmd = (f"{self.ffmpeg_path} -i {src_lp_media_name} -c:v libx264 -crf 18 "
                               f"-preset slow -tune film -pix_fmt yuv420p -profile:v high -movflags +faststart "
                               f"-c:a aac -b:a 192k {hp_mp4}")
                 ##### 转换为高质量mp4
@@ -129,7 +134,7 @@ class DownloadThread(QThread):
                 if self.convert_169:
                     ### 转换为16：9
                     video_16_9 = os.path.join(self.save_path, f'hp_{new_time_str}_16_9.mp4')
-                    command = (f'ffmpeg -y -i "{hp_mp4}" '
+                    command = (f'{self.ffmpeg_path} -y -i "{hp_mp4}" '
                                f'-filter_complex "[0:v]scale=ih*16/9:-1,boxblur=luma_radius=min(h\,w)/20:luma_power=1:chroma_radius=min(h\,w)/20:chroma_power=1,setsar=1[bg];[0:v]scale=-1:ih[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,crop=w=iw:h=iw*9/16" '
                                f'-c:a copy "{video_16_9}"')
                     self.run_ffmpeg_command(command, "视频已经转换为16：9规格")
@@ -139,12 +144,12 @@ class DownloadThread(QThread):
                 video_final = os.path.join(self.save_path, f'hp_{new_time_str}_16_9_final.mp4')
                 if self.logo_path and os.path.exists(self.logo_path):
                     ### 添加logo
-                    add_logo = f'ffmpeg -y -i {video_16_9 if video_16_9 else hp_mp4} -i "{self.logo_path}" -filter_complex "[1:v]scale={self.logo_scale}:-1,format=rgba,colorchannelmixer=aa={logo_text_set}[logo];[0:v][logo]overlay=W-w-10:10" -c:v libx264 -crf 23 -c:a copy {video_final}'
+                    add_logo = f'{self.ffmpeg_path} -y -i {video_16_9 if video_16_9 else hp_mp4} -i "{self.logo_path}" -filter_complex "[1:v]scale={self.logo_scale}:-1,format=rgba,colorchannelmixer=aa={logo_text_set}[logo];[0:v][logo]overlay=W-w-10:10" -c:v libx264 -crf 23 -c:a copy {video_final}'
                     self.run_ffmpeg_command(add_logo, "视频已经成功添加logo")
                 else:
                     ### 添加文字
                     text = self.add_text if self.add_text else '@JFMedia'
-                    add_text = f'ffmpeg -y -i {video_16_9 if video_16_9 else hp_mp4} -vf "drawtext=fontfile=\'/Users/alvin/MediaSource/fonts/STCAIYUN.TTF\':text=\'{text}\':x=w-tw-20:y=20:fontsize=50:fontcolor=NavajoWhite@{logo_text_set}" {video_final}'
+                    add_text = f'{self.ffmpeg_path} -y -i {video_16_9 if video_16_9 else hp_mp4} -vf "drawtext=fontfile=\'/Users/alvin/MediaSource/fonts/STCAIYUN.TTF\':text=\'{text}\':x=w-tw-20:y=20:fontsize=50:fontcolor=NavajoWhite@{logo_text_set}" {video_final}'
                     self.run_ffmpeg_command(add_text, f"视频已经成功添加文字{text}")
             # 模拟下载完成
             self.log_signal.emit(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 下载并处理完成！文件保存至: "
@@ -162,7 +167,8 @@ class MediaDownloader(QMainWindow):
         super().__init__()
         self.init_ui()
         self.download_thread = None
-        self.center_window_manual()  # 手动计算居中
+        self.center_window_manual()
+        os.environ['PATH'] += ':/opt/homebrew/bin'# 手动计算居中
 
     def center_window_manual(self):
         """手动计算并设置窗口居中"""
