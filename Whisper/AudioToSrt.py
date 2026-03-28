@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import time
 
@@ -105,7 +106,7 @@ def video_to_translated_subtitle(video_path, srt_output=os.path.join(VIDEO_MAIN,
         return
 
     # 3. 生成翻译后的字幕文件
-    srt_path = generate_srt(segments, srt_output)
+    generate_srt(segments, srt_output)
 
     # 清理临时音频文件
     if os.path.exists(audio_path):
@@ -113,14 +114,41 @@ def video_to_translated_subtitle(video_path, srt_output=os.path.join(VIDEO_MAIN,
     print("全部流程完成！")
 
 
+def run_ffmpeg_command(command, msg):
+    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] cmd: {command}")
+    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+    if result.returncode == 0:
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}")
+    else:
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {result.stdout}")
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {result.stderr}")
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 命令执行失败")
+    return result.returncode
+
+def rm_file(path):
+    if os.path.exists(path):
+        os.remove(path)
+
+def merge_srt_with_video(video_path, srt_path, srt_output):
+    cmd = f"{FFMPEG_PATH} -y -i {video_path} -vf \"subtitles='{srt_path}'\" {srt_output}"
+    returncode = run_ffmpeg_command(cmd, '视频和字幕合并成功')
+    if returncode == 0:
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 执行完成")
+
+        rm_file(srt_path)
+        # rm_file(video_path)
+
 # ------------------- 执行示例 -------------------
 if __name__ == "__main__":
+    file_name = "hp_20260328231742_16_9_final"
     # 替换成你的视频文件路径（支持MP4、AVI、MKV等常见格式）
-    VIDEO_FILE = os.path.join(VIDEO_MAIN, "hp_20260328215125_16_9_final.mp4")
+    VIDEO_FILE = os.path.join(VIDEO_MAIN, f"{file_name}.mp4")
     # 生成的字幕文件路径
     SRT_FILE = os.path.join(VIDEO_MAIN, f"translated_subtitle_{time.strftime('%Y%m%d%H%M%S')}.srt")
 
     # 运行主函数
     video_to_translated_subtitle(VIDEO_FILE, SRT_FILE)
-
+    RES_FILE = os.path.join(VIDEO_MAIN, f"{file_name}_srt.mp4")
     # TODO 合成字幕和视频
+    merge_srt_with_video(VIDEO_FILE, SRT_FILE, RES_FILE)
+
