@@ -12,7 +12,8 @@ def simple_translate(text: str, model: str = "qwen3:8b") -> str:
     Returns:
         中文翻译结果
     """
-    prompt = f"将以下英文翻译成中文，只输出译文：\n\n{text}"
+    prompt = (f"You are a professional translator. Translate the following text from English "
+              f"to Chinese. Maintain the original meaning, tone, and format. Output ONLY the translation.：\n\n{text}")
 
     try:
         response = ollama.chat(
@@ -22,6 +23,15 @@ def simple_translate(text: str, model: str = "qwen3:8b") -> str:
         return response['message']['content'].strip()
     except Exception as e:
         return f"翻译失败: {e}"
+
+
+def unload_model(model: str = "qwen3:8b"):
+    ## 卸载模型（退出上下文）
+    ollama.chat(
+        model=model,
+        messages=[{'role': 'user', 'content': 'exit'}],
+        keep_alive=0  # ← 关键：立即从内存释放
+    )
 
 
 # 使用简洁版

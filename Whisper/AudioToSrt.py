@@ -1,3 +1,4 @@
+import gc
 import os
 import shutil
 import subprocess
@@ -9,6 +10,7 @@ import TranslateOllama
 
 VIDEO_MAIN = r"/Users/alvin/MediaSource/Yutobe/2026-03"
 FFMPEG_PATH = r"/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg"
+TRANSLATE_MODEL = "translategemma:4b"
 
 def extract_audio_from_video(video_path,
                              audio_output_path=os.path.join(VIDEO_MAIN,
@@ -38,14 +40,34 @@ def format_timestamp(seconds):
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{ms:03d}"
 
 
-def speech_to_text(audio_path, model_name="large-v3"):
+def unload_whisper_model(model):
+    if model:
+        del model
+    model = None
+    # 强制垃圾回收
+    gc.collect()
+
+    # 清理特定设备的缓存
+    # if self.device == "cuda" and torch.cuda.is_available():
+    #     torch.cuda.empty_cache()
+    #     print("✅ CUDA 缓存已清理")
+    # elif self.device == "mps" and torch.backends.mps.is_available():
+    #     # Mac MPS 需要特殊处理
+    #     torch.mps.empty_cache()
+    #     print("✅ MPS 缓存已清理")
+    # else:
+    #     print("✅ CPU 内存已释放")
+    #     return False  # 不抑制异常
+
+
+def speech_to_text(audio_path, model_name="large-v3-turbo"):
     """用whisper将音频转文字，返回带时间戳的文本列表"""
     # 加载whisper模型（base模型轻量，适合新手；large模型更精准但慢）
     model = whisper.load_model(download_root=r"/Users/alvin/MediaSource/Models", name=model_name)
     # 识别音频，输出带时间戳的segments
     result = model.transcribe(audio_path, verbose=False)
     segments = result["segments"]  # 每个segment包含start/end/text
-
+    unload_whisper_model(model)
     # 清理识别的文本（去除多余空格）
     clean_segments = []
     for seg in segments:
@@ -63,7 +85,7 @@ def translate_text(text, target_lang="zh-CN"):
     if not text:
         return ""
     try:
-        translated = TranslateOllama.simple_translate(text, model="qwen3:8b")
+        translated = TranslateOllama.simple_translate(text, model=TRANSLATE_MODEL)
         print(f"原文（{text}）")
         print(f"译文（{translated}）")
         return translated
@@ -107,11 +129,13 @@ def video_to_translated_subtitle(video_path, srt_output=os.path.join(VIDEO_MAIN,
 
     # 3. 生成翻译后的字幕文件
     generate_srt(segments, srt_output)
+    # 卸载模型释放内存
+    TranslateOllama.unload_model(model=TRANSLATE_MODEL)
 
     # 清理临时音频文件
     if os.path.exists(audio_path):
         os.remove(audio_path)
-    print("全部流程完成！")
+
 
 
 def run_ffmpeg_command(command, msg):
