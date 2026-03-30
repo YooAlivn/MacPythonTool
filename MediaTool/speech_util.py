@@ -55,7 +55,7 @@ class SpeechUtil:
 
     @staticmethod
     def translate_text(text=None, current_language="en", model="translategemma:4b", target_language="cn",
-                       ollama_host="192.168.7.110"):
+                       ollama_host="127.0.0.1"):
         """翻译文字（默认翻译成中文）"""
         if not text:
             return ""
@@ -94,5 +94,9 @@ class SpeechUtil:
         print(f"字幕文件生成完成：{srt_path}")
         return srt_path
 
+
 if __name__ == '__main__':
-    SpeechUtil.translate_text(text="世界那么大我想去看看", current_language="cn", target_language="en")
+    SpeechUtil.translate_text(
+        text="Soft launch, strong vision.Bangkok, meet Fan Beauty Diary. Now softly unveiled at The Beautrium",
+        current_language="en", target_language="cn",
+        ollama_host="192.168.7.110")

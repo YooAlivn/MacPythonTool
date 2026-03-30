@@ -9,7 +9,7 @@ trans_key = {
 
 class OllamaUtil:
     def __init__(self, model: str = "qwen3:8b", current_language: str = "en", target_language: str = "zh",
-                 ollama_host: str = "localhost"):
+                 ollama_host: str = "127.0.0.1"):
         self.client = ollama.Client(host=f"http://{ollama_host}:11434")
         self.model = model
         self.current_language = current_language
