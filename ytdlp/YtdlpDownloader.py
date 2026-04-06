@@ -35,6 +35,15 @@ class YtDlpCustomLogger:
 
 
 # 下载线程类（模拟下载过程，实际使用时替换为真实下载逻辑）
+def get_ffmpeg_path():
+    # # PyInstaller 打包后会走这里
+    # if hasattr(sys, '_MEIPASS'):
+    #     return f"{sys._MEIPASS}/ffmpegfull/ffmpeg"
+    # # Pycharm 运行时走这里
+    # return "./ffmpegfull/ffmpeg"
+    return r"/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg"
+
+
 class DownloadThread(QThread):
     """下载线程，避免UI阻塞"""
     log_signal = pyqtSignal(str)  # 日志信号
@@ -51,7 +60,7 @@ class DownloadThread(QThread):
         self.logo_scale = window_param.get("logo_scale")
         self.add_text = window_param.get("add_text_edit")
         self.logo_text_set = window_param.get("logo_text_set")
-        self.ffmpeg_path = r"/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg"
+        self.ffmpeg_path = get_ffmpeg_path()
 
     def run_ffmpeg_command(self, command, msg):
         self.log_signal.emit(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] cmd: {command}")
@@ -67,6 +76,7 @@ class DownloadThread(QThread):
     def run(self):
         try:
             # 模拟下载过程（实际使用时替换为真实下载逻辑）
+            self.log_signal.emit(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] #####ffmpeg path: {self.ffmpeg_path}")
             self.log_signal.emit(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 开始下载 {self.media_type} 媒体文件")
             self.log_signal.emit(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 保存路径: {self.save_path}")
             self.log_signal.emit(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 媒体地址: {self.media_url}")
@@ -83,7 +93,7 @@ class DownloadThread(QThread):
                 'writethumbnail' : True,
                 'noplaylist': True,
                 # FFmpeg路径
-                'ffmpeg': self.ffmpeg_path,
+                'ffmpeg_location': self.ffmpeg_path,
                 'outtmpl': '%(title).50s.%(ext)s',
                 'restrictfilenames': True
             }

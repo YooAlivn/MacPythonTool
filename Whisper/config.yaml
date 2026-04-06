@@ -1,0 +1,8 @@
+# 翻译模型
+translate_model: translategemma:4b
+# ffmpeg地址
+ffmpeg_path: /opt/homebrew/opt/ffmpeg-full/bin/ffmpeg
+# 视频文件所在目录以及结果文件输出目录
+video_main: /Users/alvin/MediaSource/Yutobe/2026-04
+# 视频文件名称
+file_name: hp_20260402221656_16_9_final
