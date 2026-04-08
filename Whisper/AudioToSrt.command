@@ -28,9 +28,14 @@ param3="/Users/alvin/MediaSource/Yutobe/${current_date}"
 read -p "4 视频文件名称 (默认：hp_20260402221656_16_9_final)：" param4
 param4=${param4:-"hp_20260402221656_16_9_final"}
 
-read -p "5 是否带文字幕？[Y/N] 默认 Y：" param5
+read -p "5 是否带原文字幕？[Y/N] 默认 Y：" param5
 param5=${param5:-"Y"}
 
+read -p "6 原始语言 默认 english：" param6
+param6=${param6:-"english"}
+
+read -p "7 目标语言 默认 chinese：" param7
+param7=${param7:-"chinese"}
 
 
 echo ""
@@ -42,6 +47,8 @@ echo "ffmpeg地址：  $param2"
 echo "视频目录：    $param3"
 echo "视频文件名：   $param4"
 echo "是否带英文字幕：$param5"
+echo "原始语言：    $param6"
+echo "目标语言：    $param7"
 echo "========================================"
 echo ""
 
@@ -65,7 +72,7 @@ echo ""
 # ======================================
 # ✅ 关键：执行 Python 并实时输出 print
 # ======================================
-/Users/alvin/Projects/media-venv/bin/python AudioToSrt.py "$param1" "$param2" "$param3" "$param4" "$param5"
+/Users/alvin/Projects/media-venv/bin/python AudioToSrt.py "$param1" "$param2" "$param3" "$param4" "$param5" "$param6" "$param7"
 
 echo ""
 echo "========================================"

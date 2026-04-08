@@ -1,7 +1,7 @@
 import ollama
 
 
-def simple_translate(text: str, model: str = "qwen3:8b") -> str:
+def simple_translate(text: str, model: str = "qwen3:8b", original_lang: str = "english", target_lang: str = "chinese") -> str:
     """
     最简单的翻译函数
 
@@ -11,9 +11,14 @@ def simple_translate(text: str, model: str = "qwen3:8b") -> str:
 
     Returns:
         中文翻译结果
+        :param text:
+        :param target_lang:
+        :param model:
+        :param original_lang:
     """
-    prompt = (f"You are a professional translator. Translate the following text from English "
-              f"to Chinese. Maintain the original meaning, tone, and format. Output ONLY the translation.：\n\n{text}")
+    prompt = (f"You are a professional translator. Translate the following text from {original_lang} "
+              f"to {target_lang}. Maintain the original meaning, tone, and format. Output ONLY the translation.：\n\n{text}")
+    print(f"translator prompt is {prompt}")
 
     try:
         response = ollama.chat(
@@ -40,5 +45,5 @@ if __name__ == "__main__":
     print("简洁版使用示例")
     print("=" * 50)
 
-    result = simple_translate("Hello, how are you today?")
+    result = simple_translate("Hello, how are you today?", model="qwen3:8b")
     print(f"翻译结果: {result}")

@@ -3,11 +3,10 @@ import os
 import subprocess
 import sys
 import time
+from enum import Enum
 
 import whisper
 from datetime import timedelta
-
-import yaml
 
 import TranslateOllama
 
@@ -15,13 +14,23 @@ VIDEO_MAIN = r"/Users/alvin/MediaSource/Yutobe/2026-04"
 FFMPEG_PATH = r"/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg"
 TRANSLATE_MODEL = "translategemma:4b"
 
+
+class CommonParam(str, Enum):
+    TRANSLATE_MODEL = sys.argv[1]
+    FFMPEG_PATH = sys.argv[2]
+    VIDEO_MAIN = sys.argv[3]
+    file_name = sys.argv[4]
+    need_original_lan_param = sys.argv[5]
+    original_lan = sys.argv[6]
+    target_lan = sys.argv[7]
+
 def extract_audio_from_video(video_path,
-                             audio_output_path=os.path.join(VIDEO_MAIN,
+                             audio_output_path=os.path.join(CommonParam.VIDEO_MAIN.value,
                                                             f"temp_audio_{time.strftime('%Y%m%d%H%M%S')}.mp3")):
     """用ffmpeg提取音频（替代moviepy）"""
     try:
         # ffmpeg命令：-i 输入视频 -vn 只提取音频 -y 覆盖已有文件
-        cmd = f'{FFMPEG_PATH} -i "{video_path}" -vn -acodec mp3 -y "{audio_output_path}"'
+        cmd = f'{CommonParam.FFMPEG_PATH.value} -i "{video_path}" -vn -acodec mp3 -y "{audio_output_path}"'
         subprocess.run(cmd, shell=True, check=True)
         print(f"音频提取完成，保存至：{audio_output_path}")
         return audio_output_path
@@ -83,12 +92,15 @@ def speech_to_text(audio_path, model_name="large-v3-turbo"):
     return clean_segments
 
 
-def translate_text(text, target_lang="zh-CN"):
+def translate_text(text):
     """翻译文字（默认翻译成中文）"""
     if not text:
         return ""
     try:
-        translated = TranslateOllama.simple_translate(text, model=TRANSLATE_MODEL)
+        translated = TranslateOllama.simple_translate(text,
+                                                      model=CommonParam.TRANSLATE_MODEL.value,
+                                                      original_lang=CommonParam.original_lan.value,
+                                                      target_lang=CommonParam.target_lan.value)
         print(f"原文（{text}）")
         print(f"译文（{translated}）")
         return translated
@@ -97,7 +109,8 @@ def translate_text(text, target_lang="zh-CN"):
         return text  # 翻译失败则返回原文
 
 
-def generate_srt(segments, srt_path=os.path.join(VIDEO_MAIN, f"output_subtitle_{time.strftime('%Y%m%d%H%M%S')}.srt"), need_english=None):
+def generate_srt(segments,
+                 srt_path=os.path.join(CommonParam.VIDEO_MAIN.value, f"output_subtitle_{time.strftime('%Y%m%d%H%M%S')}.srt")):
     """生成SRT字幕文件（包含原文+翻译）"""
     with open(srt_path, "w", encoding="utf-8") as f:
         for idx, seg in enumerate(segments, 1):
@@ -112,15 +125,14 @@ def generate_srt(segments, srt_path=os.path.join(VIDEO_MAIN, f"output_subtitle_{
             # 写入SRT格式（序号 → 时间范围 → 字幕内容）
             f.write(f"{idx}\n")
             f.write(f"{start_time} --> {end_time}\n")
-            if need_english:
+            if CommonParam.need_original_lan_param.value.strip() in ['Y', 'y']:
                 f.write(f"{original_text}\n")
-            f.write(f"{translated_text.replace('麦格特隆', '威震天').replace('梅格特隆', '威震天')}\n\n")
+            f.write(f"{translated_text}\n\n")
     print(f"字幕文件生成完成：{srt_path}")
     return srt_path
 
 
-def video_to_translated_subtitle(video_path, srt_output=os.path.join(VIDEO_MAIN, "translated_subtitle.srt"),
-                                 need_english=None):
+def video_to_translated_subtitle(video_path, srt_output=os.path.join(CommonParam.VIDEO_MAIN.value, "translated_subtitle.srt")):
     """主函数：视频→音频→识别→翻译→字幕"""
     # 1. 提取音频
     audio_path = extract_audio_from_video(video_path)
@@ -133,9 +145,9 @@ def video_to_translated_subtitle(video_path, srt_output=os.path.join(VIDEO_MAIN,
         return
 
     # 3. 生成翻译后的字幕文件
-    generate_srt(segments, srt_output, need_english=need_english)
+    generate_srt(segments, srt_output)
     # 卸载模型释放内存
-    TranslateOllama.unload_model(model=TRANSLATE_MODEL)
+    TranslateOllama.unload_model(model=CommonParam.TRANSLATE_MODEL.value)
 
     # 清理临时音频文件
     if os.path.exists(audio_path):
@@ -159,7 +171,7 @@ def rm_file(path):
         os.remove(path)
 
 def merge_srt_with_video(video_path, srt_path, srt_output):
-    cmd = f"{FFMPEG_PATH} -y -i {video_path} -vf \"subtitles='{srt_path}'\" {srt_output}"
+    cmd = f"{CommonParam.FFMPEG_PATH.value} -y -i {video_path} -vf \"subtitles='{srt_path}'\" {srt_output}"
     returncode = run_ffmpeg_command(cmd, '视频和字幕合并成功')
     if returncode == 0:
         print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 执行完成")
@@ -167,36 +179,20 @@ def merge_srt_with_video(video_path, srt_path, srt_output):
         rm_file(srt_path)
         # rm_file(video_path)
 
-# def read_from_config():
-#
-#     with open("config.yaml", "r", encoding="utf-8") as f:
-#         config_map = yaml.safe_load(f)
-#
-#     return (config_map.get("video_main", VIDEO_MAIN),
-#             config_map.get("ffmpeg_path", FFMPEG_PATH),
-#             config_map.get("translate_model", TRANSLATE_MODEL),
-#             config_map.get("file_name", "hp_20260405215738_16_9_final"))
-
 # ------------------- 执行示例 -------------------
-if __name__ == "__main__":
-    # 获取参数
-    TRANSLATE_MODEL = sys.argv[1]
-    FFMPEG_PATH = sys.argv[2]
-    VIDEO_MAIN = sys.argv[3]
-    file_name = sys.argv[4]
-    need_english_param = True if str(sys.argv[5]).strip() in ["Y", "y"] else False
 
+if __name__ == '__main__':
     print(sys.argv)
 
     # 替换成你的视频文件路径（支持MP4、AVI、MKV等常见格式）
-    VIDEO_FILE = os.path.join(VIDEO_MAIN, f"{file_name}.mp4")
+    VIDEO_FILE = os.path.join(CommonParam.VIDEO_MAIN.value, f"{CommonParam.file_name.value}.mp4")
     print(f"{VIDEO_FILE}")
     # 生成的字幕文件路径
-    SRT_FILE = os.path.join(VIDEO_MAIN, f"translated_subtitle_{time.strftime('%Y%m%d%H%M%S')}.srt")
+    SRT_FILE = os.path.join(CommonParam.VIDEO_MAIN.value, f"translated_subtitle_{time.strftime('%Y%m%d%H%M%S')}.srt")
 
     # 运行主函数
-    video_to_translated_subtitle(VIDEO_FILE, SRT_FILE, need_english=need_english_param)
-    RES_FILE = os.path.join(VIDEO_MAIN, f"{file_name}_srt.mp4")
+    video_to_translated_subtitle(VIDEO_FILE, SRT_FILE)
+    RES_FILE = os.path.join(CommonParam.VIDEO_MAIN.value, f"{CommonParam.file_name.value}_srt.mp4")
     # TODO 合成字幕和视频
     merge_srt_with_video(VIDEO_FILE, SRT_FILE, RES_FILE)
 
